@@ -57,6 +57,9 @@ with gr.Blocks() as iface:
       with gr.Column():
         text2score = gr.Textbox(label="BERT Score After Extractive T5 Summary")
         bright = gr.Button("Evaluate Extractive + T5")        
+    b1.click(use_gradio_summary, inputs=inputBox, outputs=[text1, text2])
+    bleft.click(calculate_scores, inputs=[inputBox, text1], outputs=text1score)
+    bright.click(calculate_scores, inputs=[inputBox, text2], outputs=text2score)
     
 # Running the app
 iface.launch()

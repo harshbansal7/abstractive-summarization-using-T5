@@ -2,6 +2,7 @@ import gradio as gr
 from simplet5 import SimpleT5
 import spacy
 import pytextrank
+from eaas import Config, Client
 
 def extract_important_sentences(text, limit_phrases=15, limit_sentences=5):
     en_nlp = spacy.load("en_core_web_sm")
@@ -13,25 +14,33 @@ def extract_important_sentences(text, limit_phrases=15, limit_sentences=5):
         summary += sent.text + " "
     return summary
 
-def create_summaries(text):
+model = SimpleT5()
+model.load_model("t5", "simplet5-epoch-9-train-loss-1.3675-val-loss-2.6217")
 
-    # print("ACTUAL ABSTRACT - " + text)
-    # print("\nLength of Abstract = " + str(len(text.split())))
+def use_gradio_summary(text):
+
     sumtext = "summarize: " + text
     actual_text_prediction = model.predict(sumtext)[0]
-    # print("\nDIRECT SUMMARIZATION USING T5 - " + actual_text_prediction)
-    # print("\nLength of Summary = " + str(len(actual_text_prediction.split())))
 
     newtext = extract_important_sentences(text, 20, 6)
     newtext = "summarize: " + newtext
     extractive_text_prediction = model.predict(newtext)[0]
-    # print("\nSUMMARIZATION AFTER EXTRACTIVE USING T5 - " + extractive_text_prediction)
-    # print("\nLength of Summary = " + str(len(extractive_text_prediction.split())))
     
     return actual_text_prediction, extractive_text_prediction
     
-model = SimpleT5()
-model.load_model("t5", "simplet5-epoch-9-train-loss-1.3675-val-loss-2.6217")
+
+def calculate_scores(src, text):
+    client = Client(Config())
+    metrics = ["bert_score_f"]
+
+    inputs = [{
+        "references":src,
+        "hypothesis":text
+    }]
+
+    score_dic = client.score(inputs, metrics=metrics)
+    
+    return str(float(score_dic['scores'][0]['corpus']) * 100)[:5]
 
 with gr.Blocks() as iface:
     with gr.Row():
@@ -41,8 +50,13 @@ with gr.Blocks() as iface:
     with gr.Row():
         text1 = gr.TextArea(label="Direct T5 Summary")
         text2 = gr.TextArea(label="After Extractive T5 Summary")
-
-    b1.click(create_summaries, inputs=inputBox, outputs=[text1, text2])
+    with gr.Row():
+      with gr.Column():
+        text1score = gr.Textbox(label="BERT Score Direct T5")
+        bleft = gr.Button("Evaluate Direct T5")
+      with gr.Column():
+        text2score = gr.Textbox(label="BERT Score After Extractive T5 Summary")
+        bright = gr.Button("Evaluate Extractive + T5")        
     
 # Running the app
 iface.launch()
